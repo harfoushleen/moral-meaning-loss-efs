@@ -1,0 +1,14 @@
+anthropic
+openai
+google-generativeai
+spacy
+vaderSentiment
+nrclex
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+python-dotenv
+requests
+tqdm
