@@ -37,16 +37,28 @@ MODELS = {
 }
 
 # ── Books ──────────────────────────────────────────────────────────────────
+# 3 books from Gutenberg (free); 3 books from personal EPUBs (add as .epub to data/raw/)
+# gutenberg_id: None means the book is sourced from EPUB, not Gutenberg
 BOOKS = {
-    "1984":        {"file": "1984.txt",        "gutenberg_id": 103},
-    "animal_farm": {"file": "animal_farm.txt", "gutenberg_id": 5765},
-    "fahrenheit":  {"file": "fahrenheit.txt",  "gutenberg_id": None},  # not on Gutenberg, add manually
+    # From Project Gutenberg (public domain)
+    "we":            {"file": "we.txt",            "gutenberg_id": 61963},
+    "time_machine":  {"file": "time_machine.txt",  "gutenberg_id": 12163},
+    "iron_heel":     {"file": "iron_heel.txt",     "gutenberg_id": 1164},
+    # From personal EPUBs (place .epub files in data/raw/ and run 00b_convert_epubs.py)
+    "1984":          {"file": "1984.txt",          "gutenberg_id": None},
+    "animal_farm":   {"file": "animal_farm.txt",   "gutenberg_id": None},
+    "fahrenheit":    {"file": "fahrenheit.txt",    "gutenberg_id": None},
 }
+
+# ── EFS Weights ────────────────────────────────────────────────────────────
+# Default weight distribution across the 4 feature dimensions.
+# Equal weight = each dimension contributes equally to overall distortion.
+DEFAULT_WEIGHTS = [0.25, 0.25, 0.25, 0.25]
 
 # ── Passage Settings ───────────────────────────────────────────────────────
 PASSAGE_MIN_WORDS = 60
 PASSAGE_MAX_WORDS = 150
-TARGET_PASSAGES_PER_BOOK = 50   # 50 × 3 books × 3 models = 450 pairs total
+TARGET_PASSAGES_PER_BOOK = 50   # 50 × 6 books × 3 models = 900 pairs total
 
 # ── EFS Settings ──────────────────────────────────────────────────────────
 # Default weights (will be overridden by ridge regression after annotation)
