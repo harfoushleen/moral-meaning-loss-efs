@@ -1,18 +1,16 @@
 """
-STEP 3: Extract the 4 EFS feature dimensions from every (S, I) pair.
-Outputs data/results/features_all.csv
+STEP 5: Generate all plots and summary statistics for the paper.
+Outputs figures to outputs/figures/
 
-Run: python src/03_extract_features.py
+Run: python src/05_analyze_results.py
 
 Fixes applied vs original:
-  - f2 (Agency Attribution): replaced spaCy v2 labels "nsubjpass"/"auxpass"
-    (removed in spaCy v3) with the correct v3 label "nsubj:pass".
-    Original code always returned passive_count=0 making f2 always 1.0 for
-    every text — the delta was zero for every pair, silently.
-
-  - f4 (Causal Completeness): replaced presence check (max score = 14) with
-    occurrence count so a passage using "because" ten times scores higher
-    than one using it once.
+  - Model labels updated to actual API model names (GPT-4o, Gemini 1.5 Pro,
+    Claude Sonnet 4.6) instead of fabricated names from the paper.
+  - Pairwise t-tests now apply Bonferroni correction for multiple comparisons
+    (3 comparisons). Raw p-values alone would inflate false positive rate.
+  - Cohen's d effect size is reported alongside every t-test so statistical
+    significance is not confused with practical significance.
 """
 
 from pathlib import Path
@@ -20,136 +18,218 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 import pandas as pd
-import spacy
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from nrclex import NRCLex
-from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
 
-from config import RESULTS_DIR
+from config import RESULTS_DIR, FIG_DIR, MODEL_DISPLAY_NAMES
 
-nlp   = spacy.load("en_core_web_sm")
-vader = SentimentIntensityAnalyzer()
+plt.rcParams.update({
+    "font.size":       11,
+    "axes.titlesize":  12,
+    "axes.labelsize":  11,
+    "figure.dpi":      150,
+    "savefig.bbox":    "tight",
+    "savefig.dpi":     300,
+})
 
-# Causal connectives for f4
-CAUSAL_CONNECTIVES = [
-    "because", "therefore", "thus", "hence", "consequently",
-    "since", "so", "accordingly", "as a result", "due to",
-    "owing to", "for this reason", "thereby", "leads to"
-]
-
-# NRC emotion categories mapped to moral content
-MORAL_EMOTIONS = {"anger", "fear", "disgust", "sadness", "trust"}
-
-
-def extract_features(text: str) -> dict:
-    """
-    Extract all 4 EFS dimensions from a text.
-    Returns dict with keys f1, f2, f3, f4.
-    """
-    doc        = nlp(text)
-    n_tokens   = len(doc) + 1e-9
-    sentences  = list(doc.sents)
-    n_sents    = len(sentences) + 1e-9
-    text_lower = text.lower()
-
-    # ── f1: Moral Explicitness ─────────────────────────────────────────────
-    # VADER compound (absolute value = emotional intensity regardless of polarity)
-    vader_compound = abs(vader.polarity_scores(text)["compound"])
-
-    # NRC moral emotion frequency
-    try:
-        nrc = NRCLex(text)
-        freqs = nrc.affect_frequencies
-        nrc_moral = sum(freqs.get(e, 0.0) for e in MORAL_EMOTIONS)
-    except Exception:
-        nrc_moral = 0.0
-
-    f1 = (vader_compound + nrc_moral) / 2.0
-
-    # ── f2: Agency Attribution ─────────────────────────────────────────────
-    # FIX: spaCy v3 uses "nsubj:pass" — "nsubjpass"/"auxpass" were removed in v3
-    # and silently returned 0 for every token in the original code.
-    active_agents = sum(
-        1 for token in doc
-        if token.dep_ == "nsubj" and token.head.pos_ == "VERB"
-    )
-    passive_count = sum(
-        1 for token in doc
-        if token.dep_ == "nsubj:pass"           # spaCy v3 correct label
-    )
-    total_subj = active_agents + passive_count + 1e-9
-    f2 = active_agents / total_subj
-
-    # ── f3: Lexical Intensity ──────────────────────────────────────────────
-    # Mean absolute VADER compound score per sentence
-    sent_scores = [
-        abs(vader.polarity_scores(sent.text)["compound"])
-        for sent in sentences
-    ]
-    f3 = sum(sent_scores) / n_sents
-
-    # ── f4: Causal Completeness ────────────────────────────────────────────
-    # FIX: count total occurrences, not just presence (original capped at 14
-    # regardless of how many times connectives appeared in the text).
-    causal_hits = sum(text_lower.count(c) for c in CAUSAL_CONNECTIVES)
-    f4 = causal_hits / n_tokens * 100   # per 100 tokens
-
-    return {
-        "f1": round(f1, 6),
-        "f2": round(f2, 6),
-        "f3": round(f3, 6),
-        "f4": round(f4, 6),
-    }
+MODEL_COLORS = {
+    "claude": "#e07b39",
+    "gpt":    "#4a90d9",
+    "gemini": "#5cb85c",
+}
 
 
-def process_file(interp_file: Path) -> pd.DataFrame:
-    df = pd.read_csv(interp_file)
-    rows = []
+def label(model_key: str) -> str:
+    return MODEL_DISPLAY_NAMES.get(model_key, model_key)
 
-    for _, row in tqdm(df.iterrows(), total=len(df),
-                       desc=f"  Features [{interp_file.stem}]"):
-        try:
-            fs = extract_features(str(row["source_passage"]))
-            fi = extract_features(str(row["interpretation"]))
 
-            rows.append({
-                "passage_id":  row["passage_id"],
-                "book":        row["book"],
-                "model_key":   row["model_key"],
-                "model_name":  row["model_name"],
-                # Source features
-                "s_f1": fs["f1"], "s_f2": fs["f2"],
-                "s_f3": fs["f3"], "s_f4": fs["f4"],
-                # Interpretation features
-                "i_f1": fi["f1"], "i_f2": fi["f2"],
-                "i_f3": fi["f3"], "i_f4": fi["f4"],
-                # Deltas — positive = attenuation = distortion
-                "delta_f1": round(fs["f1"] - fi["f1"], 6),
-                "delta_f2": round(fs["f2"] - fi["f2"], 6),
-                "delta_f3": round(fs["f3"] - fi["f3"], 6),
-                "delta_f4": round(fs["f4"] - fi["f4"], 6),
-            })
-        except Exception as e:
-            print(f"\n  ⚠️  Skipping {row['passage_id']}: {e}")
+def load_data() -> pd.DataFrame:
+    efs_file = RESULTS_DIR / "efs_scores.csv"
+    if not efs_file.exists():
+        raise FileNotFoundError("efs_scores.csv not found. Run 04_compute_efs.py first.")
+    return pd.read_csv(efs_file)
 
-    return pd.DataFrame(rows)
+
+# ── Plot 1: EFS Distribution per Model ─────────────────────────────────────
+
+def plot_efs_distribution(df: pd.DataFrame):
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    for model_key, color in MODEL_COLORS.items():
+        subset = df[df["model_key"] == model_key]["efs"]
+        if subset.empty:
+            continue
+        subset.plot.kde(ax=ax, color=color, label=label(model_key), linewidth=2)
+        ax.axvline(subset.mean(), color=color, linestyle="--", alpha=0.7, linewidth=1)
+
+    ax.set_xlabel("Epistemic Fidelity Score (EFS)\n(higher = more distortion)")
+    ax.set_ylabel("Density")
+    ax.set_title("EFS Distribution by Model")
+    ax.legend()
+    ax.grid(alpha=0.3)
+
+    _save(fig, "fig1_efs_distribution")
+
+
+# ── Plot 2: Per-Dimension Delta Comparison ──────────────────────────────────
+
+def plot_dimension_comparison(df: pd.DataFrame):
+    dims       = ["delta_f1", "delta_f2", "delta_f3", "delta_f4"]
+    dim_labels = ["Moral\nExplicitness", "Agency\nAttribution",
+                  "Lexical\nIntensity", "Causal\nCompleteness"]
+
+    models = [m for m in MODEL_COLORS if m in df["model_key"].unique()]
+    x      = np.arange(len(dims))
+    width  = 0.25
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    for i, model_key in enumerate(models):
+        subset = df[df["model_key"] == model_key]
+        means  = [subset[d].mean() for d in dims]
+        stds   = [subset[d].std()  for d in dims]
+        ax.bar(x + i * width, means, width,
+               yerr=stds, capsize=3,
+               label=label(model_key),
+               color=MODEL_COLORS[model_key], alpha=0.85)
+
+    ax.set_xticks(x + width)
+    ax.set_xticklabels(dim_labels)
+    ax.set_ylabel("Mean Delta (Source − Interpretation)")
+    ax.set_title("Mean Distortion per Dimension by Model")
+    ax.axhline(0, color="black", linewidth=0.8)
+    ax.legend()
+    ax.grid(axis="y", alpha=0.3)
+
+    _save(fig, "fig2_dimension_comparison")
+
+
+# ── Plot 3: EFS by Book ─────────────────────────────────────────────────────
+
+def plot_efs_by_book(df: pd.DataFrame):
+    books  = sorted(df["book"].unique())
+    models = [m for m in MODEL_COLORS if m in df["model_key"].unique()]
+    x      = np.arange(len(books))
+    width  = 0.25
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    for i, model_key in enumerate(models):
+        subset = df[df["model_key"] == model_key]
+        means  = [subset[subset["book"] == b]["efs"].mean() for b in books]
+        ax.bar(x + i * width, means, width,
+               label=label(model_key),
+               color=MODEL_COLORS[model_key], alpha=0.85)
+
+    ax.set_xticks(x + width)
+    ax.set_xticklabels([b.replace("_", " ").title() for b in books])
+    ax.set_ylabel("Mean EFS")
+    ax.set_title("Mean EFS by Source Book and Model")
+    ax.legend()
+    ax.grid(axis="y", alpha=0.3)
+
+    _save(fig, "fig3_efs_by_book")
+
+
+# ── Plot 4: Correlation Heatmap ─────────────────────────────────────────────
+
+def plot_correlation_heatmap(df: pd.DataFrame):
+    cols   = ["delta_f1", "delta_f2", "delta_f3", "delta_f4", "efs"]
+    labels = ["Δ Moral", "Δ Agency", "Δ Lexical", "Δ Causal", "EFS"]
+
+    corr         = df[cols].corr()
+    corr.index   = labels
+    corr.columns = labels
+
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r",
+                center=0, ax=ax, square=True, linewidths=0.5)
+    ax.set_title("Correlation Between EFS Dimensions")
+
+    _save(fig, "fig4_correlation_heatmap")
+
+
+# ── Statistics Table ────────────────────────────────────────────────────────
+
+def cohens_d(a: pd.Series, b: pd.Series) -> float:
+    """Compute Cohen's d effect size between two independent samples."""
+    pooled_std = np.sqrt((a.std() ** 2 + b.std() ** 2) / 2)
+    return (a.mean() - b.mean()) / (pooled_std + 1e-9)
+
+
+def print_stats_table(df: pd.DataFrame):
+    print("\n  === Full Statistics Table ===")
+
+    dims       = ["delta_f1", "delta_f2", "delta_f3", "delta_f4", "efs"]
+    dim_labels = ["Δ Moral Expl.", "Δ Agency Attr.",
+                  "Δ Lexical Int.", "Δ Causal Compl.", "EFS"]
+
+    for model_key in sorted(df["model_key"].unique()):
+        subset = df[df["model_key"] == model_key]
+        print(f"\n  {label(model_key)} (n={len(subset)})")
+        print(f"  {'Dimension':<22} {'Mean':>8} {'Std':>8} {'Min':>8} {'Max':>8}")
+        print(f"  {'-'*56}")
+        for dim, lbl in zip(dims, dim_labels):
+            col = subset[dim]
+            print(f"  {lbl:<22} {col.mean():>8.4f} {col.std():>8.4f} "
+                  f"{col.min():>8.4f} {col.max():>8.4f}")
+
+    # Pairwise t-tests with Bonferroni correction and Cohen's d
+    models = sorted(df["model_key"].unique())
+    pairs  = [(models[i], models[j])
+              for i in range(len(models)) for j in range(i + 1, len(models))]
+    n_comparisons = len(pairs)
+
+    print(f"\n  === Pairwise t-tests on EFS "
+          f"(Bonferroni-corrected, {n_comparisons} comparisons) ===")
+
+    for m1, m2 in pairs:
+        a = df[df["model_key"] == m1]["efs"]
+        b = df[df["model_key"] == m2]["efs"]
+
+        t_stat, p_raw       = stats.ttest_ind(a, b)
+        p_corrected         = min(p_raw * n_comparisons, 1.0)   # Bonferroni
+        d                   = cohens_d(a, b)
+
+        sig = ("***" if p_corrected < 0.001
+               else "**"  if p_corrected < 0.01
+               else "*"   if p_corrected < 0.05
+               else "ns")
+
+        print(f"  {label(m1)} vs {label(m2)}: "
+              f"t={t_stat:.3f}, p_raw={p_raw:.4f}, "
+              f"p_bonf={p_corrected:.4f} {sig}, d={d:.3f}")
+
+    # Save summary CSV
+    out_file = RESULTS_DIR / "summary_statistics.csv"
+    summary  = df.groupby("model_key")[dims].agg(["mean", "std", "min", "max"])
+    summary.to_csv(out_file)
+    print(f"\n  Saved summary statistics to {out_file}")
+
+
+# ── Helper ──────────────────────────────────────────────────────────────────
+
+def _save(fig, name: str):
+    pdf = FIG_DIR / f"{name}.pdf"
+    png = FIG_DIR / f"{name}.png"
+    fig.savefig(pdf)
+    fig.savefig(png)
+    plt.close(fig)
+    print(f"  Saved {pdf.name}")
 
 
 if __name__ == "__main__":
-    print("=== Step 3: Extracting features ===")
+    print("=== Step 5: Generating analysis and figures ===\n")
+    df = load_data()
+    print(f"  Loaded {len(df)} rows across {df['model_key'].nunique()} models.\n")
 
-    all_dfs = []
-    for interp_file in sorted(RESULTS_DIR.glob("interpretations_*.csv")):
-        print(f"\nProcessing {interp_file.name}...")
-        df = process_file(interp_file)
-        all_dfs.append(df)
+    plot_efs_distribution(df)
+    plot_dimension_comparison(df)
+    plot_efs_by_book(df)
+    plot_correlation_heatmap(df)
+    print_stats_table(df)
 
-    if not all_dfs:
-        print("No interpretation files found. Run 02_generate_interpretations.py first.")
-    else:
-        combined = pd.concat(all_dfs, ignore_index=True)
-        out_file = RESULTS_DIR / "features_all.csv"
-        combined.to_csv(out_file, index=False)
-        print(f"\nSaved {len(combined)} rows to {out_file}")
-        print(combined[["model_key", "delta_f1", "delta_f2",
-                         "delta_f3", "delta_f4"]].groupby("model_key").mean().round(4))
+    print(f"\nAll figures saved to {FIG_DIR}")
+
