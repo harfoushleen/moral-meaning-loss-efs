@@ -4,22 +4,23 @@ This is the practical checklist. Work top to bottom.
 
 ## A. Lock The Study Design
 
-- Decide: local-model study or frontier-model study.
-- If local: keep Gemma 3 4B and Phi-4 Mini in the paper.
-- If frontier: update code to use GPT/Claude/Gemini APIs before claiming them.
-- Align the paper book list with `src/config.py`.
-- Align the paper model list with `src/config.py`.
+- Locked: local-model study.
+- Keep Gemma 3 4B and Phi-4 Mini in the paper.
+- Do not claim GPT/Claude/Gemini/Qwen behavior unless those models are added
+  to the code and run.
+- Paper book list is aligned with `src/config.py`.
+- Paper model list is aligned with `src/config.py`.
 
 ## B. Generate Evidence
 
 - Install Ollama manually.
 - Pull `gemma3:4b`.
 - Pull `phi4-mini`.
-- Run `python src/02_generate_interpretations.py`.
-- Run `python src/03_extract_features.py`.
-- Run `python src/04_compute_efs.py`.
-- Run `python src/05_analyze_results.py`.
-- Run `python src/06_validate_metrics.py`.
+- Done in this workspace: `python src/02_generate_interpretations.py`.
+- Done in this workspace: `python src/03_extract_features.py`.
+- Done in this workspace: `python src/04_compute_efs.py`.
+- Done in this workspace: `python src/05_analyze_results.py`.
+- Done in this workspace: `python src/06_validate_metrics.py`.
 
 ## C. Validate With Humans
 
@@ -34,15 +35,15 @@ This is the practical checklist. Work top to bottom.
 
 ## D. Build Results Tables
 
-- Dataset summary by book.
-- Model configuration table.
-- EFS mean/std/min/max by model.
-- EFS mean/std by book.
-- Per-dimension deltas by model.
-- Pairwise tests with corrected p-values.
-- Cohen's d effect sizes.
-- Ablation results.
-- Baseline comparison.
+- Done: Dataset summary by book.
+- Done: Model configuration table.
+- Done: EFS mean/std/min/max by model in `data/results/summary_statistics.csv`.
+- Done: EFS mean/std by book in `data/results/book_summary.csv`.
+- Done: Per-dimension deltas by model in `data/results/dimension_summary.csv`.
+- Done: Pairwise tests with corrected p-values in `data/results/pairwise_tests.csv`.
+- Done: Cohen's d effect sizes in `data/results/pairwise_tests.csv`.
+- Done: Ablation results in `data/results/validation_ablation.csv`.
+- Done: Baseline comparison in `data/results/validation_baselines.csv`.
 - Human agreement summary.
 
 ## E. Build Qualitative Evidence
@@ -58,7 +59,7 @@ This is the practical checklist. Work top to bottom.
 
 - Replace speculative future tense with completed-method language only where
   results exist.
-- Remove unsupported claims about GPT/Claude/Gemini unless you run them.
+- Remove unsupported claims about GPT/Claude/Gemini/Qwen unless you run them.
 - Add the exact prompt used in `src/config.py`.
 - Add the exact model names.
 - Add the exact dataset list.
@@ -76,8 +77,8 @@ This is the practical checklist. Work top to bottom.
 
 ## H. Submission Polish
 
-- Use consistent terminology: "moral meaning attenuation" or "moral meaning
-  loss"; do not switch randomly.
+- Use consistent terminology: "moral meaning attenuation"; use "moral meaning
+  loss" only when explaining the broader concept.
 - Define EFS before using the acronym.
 - Make the contribution list concrete.
 - Keep examples short and legally safe.

@@ -19,7 +19,7 @@ from datetime import datetime
 STEPS = [
     ("00_download_books.py", "Download books from Project Gutenberg"),
     ("01_extract_passages.py", "Extract ~50 passages per book"),
-    ("02_generate_interpretations.py", "Generate LLM interpretations (~900 calls)"),
+    ("02_generate_interpretations.py", "Generate LLM interpretations (~600 calls)"),
     ("03_extract_features.py", "Extract 4 EFS feature dimensions"),
     ("04_compute_efs.py", "Compute Epistemic Fidelity Scores"),
     ("05_analyze_results.py", "Generate figures and statistics"),
@@ -61,7 +61,7 @@ def run_step(step_num: int, script_name: str, description: str) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run the moral meaning loss pipeline."
+        description="Run the moral meaning attenuation pipeline."
     )
     parser.add_argument(
         "--from",
@@ -91,7 +91,7 @@ def main():
         sys.exit(1)
     
     print(f"\n{'='*70}")
-    print(f"Moral Meaning Loss in LLMs — Pipeline Orchestrator")
+    print(f"Moral Meaning Attenuation in Local LLMs - Pipeline Orchestrator")
     print(f"{'='*70}")
     print(f"\nSteps to run:")
     for i in range(start, end + 1):

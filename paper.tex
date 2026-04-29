@@ -1,0 +1,427 @@
+\documentclass[10pt, conference]{IEEEtran}
+
+% Packages
+\usepackage{cite}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{array}
+\usepackage{multirow}
+
+% Title & Authors
+\title{Detecting and Quantifying Moral Meaning Attenuation in Local Large Language Models}
+
+\author{
+    \IEEEauthorblockN{Perla Imad, Leen Harfoush, Tarek Kronfol}
+    \IEEEauthorblockA{
+        Department of Mathematics and Computer Science \\
+        Lebanese American University \\
+        \href{mailto:perla.imad@lau.edu}{perla.imad@lau.edu},
+        \href{mailto:leen.harfoush@lau.edu}{leen.harfoush@lau.edu},
+        \href{mailto:tarek.kronfol@lau.edu}{tarek.kronfol@lau.edu}
+    }
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Large language models (LLMs) are increasingly used to interpret morally complex texts. A critical but underexplored failure mode is moral meaning attenuation: the weakening of moral content in LLM-generated interpretations through hedged blame, softened language, reduced agency, or weakened causal structure. Unlike hallucination or refusal, this distortion may produce no factual error, making it difficult to detect.
+
+This study proposes a framework for detecting and quantifying this distortion by comparing a source passage $S$ with its LLM-generated interpretation $I$. The method computes a composite Epistemic Fidelity Score (EFS) across four dimensions: moral explicitness, agency attribution, lexical intensity, and causal completeness. Each dimension is measured as a signed deviation between feature values extracted from $S$ and $I$ using standard NLP tools.
+
+Experiments are conducted on 300 passages from dystopian literature, yielding 600 $(S, I)$ pairs across two locally deployed models: Gemma 3 4B and Phi-4 Mini. The framework enables automated measurement of moral-linguistic attenuation and supports cross-model comparison in a reproducible local setting.
+\end{abstract}
+
+\begin{IEEEkeywords}
+large language models, moral meaning attenuation, epistemic fidelity, local models, dystopian literature
+\end{IEEEkeywords}
+
+\section{Introduction} \label{Intro}
+
+Large language models (LLMs), including locally deployed models such as Gemma 3 4B and Phi-4 Mini, are no longer merely response tools or information retrievers; they have become interpretation engines. Widely used in education, LLMs shape how researchers, educators, and scholars understand content~\cite{vieriu2025education, rodriguez2026ai}.
+
+These models are trained not only to produce fluent text but also to follow instruction and safety-tuning objectives designed to reduce harmful outputs~\cite{openai2025policies}. While these objectives are important, they may introduce a subtle side effect: distortion of moral meaning without altering factual correctness.
+
+When asked to interpret morally charged texts, LLMs may hedge, generalize, or neutralize moral content~\cite{barnhart2025alignment, kay2024epistemic}. Unlike hallucination, where a model generates false information, or refusal, where a model declines to answer, moral meaning attenuation is a \textit{silent} distortion. The user receives a response that appears complete and coherent, but the interpretation may weaken the source text's moral force, agency, or causal structure~\cite{barnhart2025alignment, williamson2024deception}.
+
+If left unaddressed, large-scale use of LLMs in educational and research settings risks reshaping how users interpret responsibility, causality, and historical agency~\cite{kashiramka2024ai, mckelvie2025history}. These distortions may occur without factual error, making them difficult for current evaluation methods to detect.
+
+This problem becomes particularly important in dystopian literature, a genre built around explicit structures of power, responsibility, and consequence. These texts often identify agents, assign responsibility, and preserve causal relationships between actions and outcomes. At scale, such texts shape how readers understand history, ethics, authority, and resistance~\cite{kashiramka2024ai, mckelvie2025history, zhou2025literature}.
+
+This study investigates whether LLM-generated interpretations attenuate these structures: whether violence is softened into conflict, oppression is generalized into social pressure, or responsibility is obscured through neutral phrasing. Because such transformations can remain coherent, they are not captured by existing categories of hallucination or bias.
+
+To address this gap, we shift the focus from evaluating factual correctness alone to measuring the preservation of moral-linguistic meaning. We frame moral meaning attenuation as a measurable form of semantic distortion by comparing a source passage and its corresponding LLM-generated interpretation.
+
+Distortion is defined as divergence from the moral-linguistic fingerprint of the source across four dimensions: moral explicitness, agency attribution, lexical intensity, and causal completeness. Together, these dimensions form the basis of an Epistemic Fidelity Score (EFS), a composite signal designed to capture semantic attenuation.
+
+In this study, we analyze 300 passages drawn from dystopian literature across Gemma 3 4B and Phi-4 Mini, enabling comparison of moral meaning attenuation across two locally deployed models.
+
+The rest of the paper is organized as follows. Section~\ref{related} reviews related work. Section~\ref{Contributions} outlines the contributions. Section~\ref{sec:system_model} presents the system model. Section~\ref{Approach} describes the proposed approach. Section~\ref{sec:dataset} describes the dataset. Section~\ref{sec:setup} reports the experimental setup. Section~\ref{Results} reports the automated results, followed by validation, qualitative analysis, limitations, and conclusion.
+
+\section{Related Work} \label{related}
+
+LLM evaluation has evolved across multiple research directions, each targeting a distinct failure mode. This section reviews five categories and highlights gaps relevant to detecting loss of moral meaning.
+
+Hallucination detection focuses on identifying factual errors and inconsistencies~\cite{williamson2024deception, malin2025faithfulness, singh2025transformer}. Although effective for detecting incorrect outputs, these methods do not capture cases where an LLM-generated interpretation is factually accurate but attenuates the moral content of the source. In such cases, no factual inconsistency is produced, and therefore no standard hallucination signal is raised.
+
+Previous work develops automated metrics for semantic similarity and sentiment analysis using embeddings and transformer representations~\cite{rao2025semantic, shang2025summarization, feng2024clinical, hany2023relatedness, horvat2024sentiment, cheng2024twitter}. These approaches measure surface-level alignment but do not model directional changes in moral structure. As a result, they may fail to distinguish between outputs that are lexically similar and outputs that preserve underlying moral relationships.
+
+Research on bias and alignment shows that LLM outputs can reflect training-data skews and produce compliant yet distorted responses~\cite{dhingra2025bias, barnhart2025alignment, kay2024epistemic, kashiramka2024ai}. However, these works often focus on distributional bias rather than per-instance attenuation of moral content. No framework in this area directly assigns a score to how much moral meaning a specific interpretation has lost relative to its source.
+
+Safety and jailbreak research examines how models suppress harmful content and how safeguards can be bypassed~\cite{nguyen2025guardrails, knowlton2026jailbreak, sornette2026alignment}. These approaches address explicit harm but do not capture distortion in compliant outputs where meaning is altered without triggering safety mechanisms.
+
+Recent work evaluates LLMs on narrative structure and psychological depth~\cite{tian2024narratives, harel2024psychological, zhou2025literature}. While these studies highlight structural limitations such as flattening of tension and emotional range, they do not formalize moral meaning attenuation as a measurable signal. They also do not provide a standardized metric for direct model comparison.
+
+\begin{table}[h]
+\centering
+\caption{Prior work vs.\ proposed EFS across six challenge dimensions.
+\checkmark~=~addressed; $\circ$~=~partial; --~=~not addressed.}
+\label{tab:related}
+\scriptsize
+\renewcommand{\arraystretch}{1.0}
+\begin{tabular}{p{1.55cm}lcccccc}
+\toprule
+\textbf{Category} & \textbf{Work} & \textbf{SD} & \textbf{MP} & \textbf{AA} & \textbf{CC} & \textbf{CM} & \textbf{AS}\\
+\midrule
+\multirow{3}{1.55cm}{Hallucin-ation}
+  & Williamson~\cite{williamson2024deception} & $\circ$ & -- & -- & -- & -- & -- \\
+  & Malin~\cite{malin2025faithfulness}        & --      & $\circ$ & -- & -- & -- & \checkmark \\
+  & Singh~\cite{singh2025transformer}         & --      & $\circ$ & -- & -- & $\circ$ & \checkmark \\
+\midrule
+\multirow{6}{1.55cm}{Semantic Similarity}
+  & Rao~\cite{rao2025semantic}                & -- & $\circ$ & -- & -- & -- & \checkmark \\
+  & Shang~\cite{shang2025summarization}       & -- & $\circ$ & -- & -- & -- & \checkmark \\
+  & Feng~\cite{feng2024clinical}              & -- & $\circ$ & -- & -- & -- & \checkmark \\
+  & Hany~\cite{hany2023relatedness}           & -- & $\circ$ & -- & -- & -- & \checkmark \\
+  & Horvat~\cite{horvat2024sentiment}         & -- & $\circ$ & -- & -- & -- & \checkmark \\
+  & Cheng~\cite{cheng2024twitter}             & -- & --      & -- & -- & -- & \checkmark \\
+\midrule
+\multirow{4}{1.55cm}{Bias \& Alignment}
+  & Dhingra~\cite{dhingra2025bias}            & --      & --      & -- & -- & -- & \checkmark \\
+  & Barnhart~\cite{barnhart2025alignment}     & $\circ$ & $\circ$ & -- & -- & -- & -- \\
+  & Kay~\cite{kay2024epistemic}               & $\circ$ & $\circ$ & -- & -- & -- & -- \\
+  & Kashiramka~\cite{kashiramka2024ai}        & --      & $\circ$ & -- & -- & -- & -- \\
+\midrule
+\multirow{3}{1.55cm}{Safety \& Jailbreak}
+  & Nguyen~\cite{nguyen2025guardrails}        & --      & -- & -- & -- & --          & \checkmark \\
+  & Knowlton~\cite{knowlton2026jailbreak}     & --      & -- & -- & -- & \checkmark  & \checkmark \\
+  & Sornette~\cite{sornette2026alignment}     & $\circ$ & -- & -- & -- & --          & -- \\
+\midrule
+\multirow{3}{1.55cm}{Literary Eval.}
+  & Tian~\cite{tian2024narratives}            & -- & $\circ$ & $\circ$ & $\circ$ & -- & $\circ$ \\
+  & Harel-Canada~\cite{harel2024psychological}& -- & $\circ$ & $\circ$ & --      & -- & \checkmark \\
+  & Zhou~\cite{zhou2025literature}            & -- & $\circ$ & --      & --      & -- & \checkmark \\
+\midrule
+-- & \textbf{Ours (EFS)} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:related} compares prior work across six challenge dimensions: silent distortion (SD), moral preservation (MP), agency attribution (AA), causal completeness (CC), cross-model comparison (CM), and automated scoring (AS).
+
+The table highlights a consistent pattern: existing approaches address isolated aspects of the problem. Hallucination frameworks detect factual error, semantic similarity and sentiment methods capture surface-level alignment rather than meaning preservation, bias and alignment studies show distortion but lack per-instance measurement, safety and jailbreak work focuses on explicit harm, and literary evaluation captures structural effects without formalizing them as a measurable signal.
+
+\section{Contributions} \label{Contributions}
+
+We introduce a framework that uses moral-linguistic features to quantify attenuation between a source passage and an LLM-generated interpretation.
+
+\textbf{Operationalization of moral meaning attenuation.} We translate epistemic harm into four measurable dimensions: moral explicitness, agency attribution, lexical intensity, and causal completeness. Each dimension is computed as a signed delta $\Delta_d = f_d(S) - f_d(I)$ and aggregated into a single Epistemic Fidelity Score (EFS).
+
+\textbf{Detection of silent distortion.} The framework targets fluent and factually coherent outputs, addressing a class of distortion not captured by hallucination, bias, or toxicity metrics.
+
+\textbf{Cross-model comparison in a local setting.} By applying the same pipeline to 600 $(S, I)$ pairs across Gemma 3 4B and Phi-4 Mini, we enable direct comparison of moral meaning attenuation across two locally deployed models.
+
+\textbf{Dystopian literature as evaluation corpus.} We introduce a controlled dataset of passages with explicit moral agents, identifiable power structures, and clear causal chains.
+
+\section{System Model}
+\label{sec:system_model}
+
+This section formalizes the environment, pipeline topology, inputs, parameters, outputs, and assumptions of the framework.
+
+\subsection{Environment}
+
+The system operates in an offline, post-hoc evaluation setting. Source passages and their corresponding LLM-generated interpretations are collected in advance, and the framework processes these pairs without real-time interaction with the models. The models are run locally through Ollama, supporting reproducibility and reducing dependence on external API behavior.
+
+\subsection{Topology}
+
+The pipeline follows a sequential five-stage architecture, as illustrated in Fig.~\ref{fig:systemModel}:
+
+\begin{enumerate}
+    \item Text ingestion: Each $(S, I)$ pair is loaded and tokenized.
+    \item Feature extraction: Linguistic features are extracted using spaCy, VADER, and the NRC Emotion Lexicon.
+    \item Per-dimension delta computation: For each dimension $d$, a signed delta $\Delta_d = f_d(S) - f_d(I)$ is computed.
+    \item Score aggregation: Deltas are combined into EFS using weights $w$.
+    \item Model comparison: EFS distributions are computed per model for cross-model analysis.
+\end{enumerate}
+
+\subsection{Inputs}
+
+The system processes pairs $(S, I)$, where $S$ is a source passage and $I$ is its LLM-generated interpretation. The dataset consists of 600 pairs derived from 300 passages across six dystopian novels, with each passage interpreted by Gemma 3 4B and Phi-4 Mini.
+
+\subsection{System Parameters}
+
+The framework includes the following parameters:
+
+\begin{itemize}
+    \item $w = [w_1, w_2, w_3, w_4]^\top$: weights assigned to the four EFS dimensions.
+    \item $\lambda$: regularization parameter used if weights are learned through ridge regression.
+\end{itemize}
+
+When human annotations are available, weights can be learned using ridge regression. When annotations are insufficient, default weights are used and reported. The default implementation uses $w=[0.30,0.25,0.25,0.20]$ for moral explicitness, agency attribution, lexical intensity, and causal completeness, respectively.
+
+\subsection{Outputs}
+
+For each $(S, I)$ pair, the system produces:
+
+\begin{itemize}
+    \item Four delta scores: $\Delta_{\text{moral}}, \Delta_{\text{agency}}, \Delta_{\text{lexical}}, \Delta_{\text{causal}}$.
+    \item A scalar Epistemic Fidelity Score:
+\end{itemize}
+
+\[
+EFS = \sum_{d=1}^{4} w_d \cdot \Delta_d
+\]
+
+\begin{itemize}
+    \item Aggregated EFS distributions per model for cross-model comparison.
+\end{itemize}
+
+\subsection{Assumptions}
+
+The framework rests on four assumptions:
+
+\begin{enumerate}
+    \item Moral structure in source passages. Source texts contain explicit moral structure, including identifiable agents and causal chains. The framework is not intended for neutral text.
+
+    \item Fluency and factual coherence of interpretations. Interpretations are assumed to be factually coherent. EFS captures attenuation of moral meaning, not factual inaccuracy.
+
+    \item Annotation consistency. If supervised calibration is used, human annotations are assumed to provide a consistent supervision signal.
+
+    \item Validity of NLP tools. spaCy, VADER, and the NRC Emotion Lexicon provide approximations of the four EFS dimensions, limiting the framework to signals these tools can capture.
+\end{enumerate}
+
+\begin{figure}
+    \centering
+    \fbox{
+    \begin{minipage}{0.9\columnwidth}
+    \centering
+    Source passage and model interpretation\\[0.4em]
+    $\downarrow$\\[0.4em]
+    Feature extraction\\[0.4em]
+    $\downarrow$\\[0.4em]
+    Per-dimension deltas\\[0.4em]
+    $\downarrow$\\[0.4em]
+    EFS aggregation\\[0.4em]
+    $\downarrow$\\[0.4em]
+    Model comparison and qualitative review
+    \end{minipage}
+    }
+    \caption{End-to-end system topology.}
+    \label{fig:systemModel}
+\end{figure}
+
+\section{Proposed Approach} \label{Approach}
+
+To detect moral meaning attenuation, we model distortion as a structured divergence between a source passage $S$ and its corresponding LLM-generated interpretation $I$. The proposed system follows a three-stage pipeline: feature extraction, per-dimension distortion modeling, and score aggregation.
+
+Given a pair $(S, I)$, both texts are processed through a unified NLP pipeline using spaCy for tokenization, part-of-speech tagging, and dependency parsing. These representations enable the extraction of structured signals that capture how meaning is expressed.
+
+From each text, we compute a feature vector across four dimensions:
+
+\begin{itemize}
+    \item Moral Explicitness ($f_1$): Measures the presence and strength of evaluative language using polarity scoring with VADER and emotion-based intensity with the NRC Emotion Lexicon.
+
+    \item Agency Attribution ($f_2$): Captures whether responsibility is explicitly assigned, computed using agentive constructions derived from dependency relations.
+
+    \item Lexical Intensity ($f_3$): Quantifies the strength of descriptive language through valence and intensity shifts using lexicon-based scoring.
+
+    \item Causal Completeness ($f_4$): Measures the preservation of cause-effect structure through connective density and dependency-based identification of causal relations.
+\end{itemize}
+
+\[
+F(S) = [f_1(S), f_2(S), f_3(S), f_4(S)]
+\]
+
+\[
+F(I) = [f_1(I), f_2(I), f_3(I), f_4(I)]
+\]
+
+Distortion is defined as the directional deviation between the source and interpretation along each dimension:
+
+\[
+\Delta_d = f_d(S) - f_d(I), \quad d \in \{1,2,3,4\}
+\]
+
+Positive values indicate attenuation, where the interpretation weakens the corresponding moral-linguistic signal.
+
+The per-dimension deviations are aggregated into a composite Epistemic Fidelity Score:
+
+\[
+EFS(S, I) = \sum_{d=1}^{4} w_d \cdot \Delta_d
+\]
+
+where $w_d$ denotes the contribution of each dimension. When human annotation signals are available, the weights may be learned through ridge regression:
+
+\[
+w = \arg\min_w \|y - Xw\|^2 + \lambda \|w\|^2
+\]
+
+where $X$ contains the deviations $\Delta_d$, $y$ represents annotation signals, and $\lambda$ is tuned through cross-validation.
+
+Once EFS scores are computed, distortion is analyzed as a distribution across the dataset. High-EFS cases are inspected qualitatively to identify common forms of attenuation, such as reduced moral explicitness, weakened agency, softened lexical intensity, or loss of causal structure.
+
+To validate the metric, each dimension can be removed in an ablation study and the resulting shifts in EFS distributions can be measured. Sensitivity analysis can also be conducted on the weights to evaluate whether model comparisons remain stable under small perturbations.
+
+\section{Dataset} \label{sec:dataset}
+
+The dataset consists of 300 source passages drawn from six dystopian novels: \textit{1984}, \textit{Fahrenheit 451}, \textit{Animal Farm}, \textit{We}, \textit{The Iron Heel}, and \textit{The Time Machine}. Each book contributes 50 passages selected for moral or political relevance using keyword-based ranking over terms associated with power, responsibility, coercion, harm, surveillance, class, and causal consequence. The observed passage length range is 83--204 words.
+
+\begin{table}[h]
+\centering
+\caption{Dataset summary by book.}
+\label{tab:dataset_summary}
+\scriptsize
+\begin{tabular}{lll}
+\toprule
+\textbf{Book} & \textbf{Source Type} & \textbf{Passages} \\
+\midrule
+\textit{We} & Project Gutenberg & 50 \\
+\textit{The Time Machine} & Project Gutenberg & 50 \\
+\textit{The Iron Heel} & Project Gutenberg & 50 \\
+\textit{1984} & Local text/EPUB-derived & 50 \\
+\textit{Animal Farm} & Local text/EPUB-derived & 50 \\
+\textit{Fahrenheit 451} & Local text/EPUB-derived & 50 \\
+\midrule
+\textbf{Total} & -- & \textbf{300} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Experimental Setup} \label{sec:setup}
+
+Each passage is submitted to two locally deployed models, producing 600 total $(S,I)$ pairs. The current local run generated interpretations, extracted features, computed EFS scores, produced summary figures, and ran ablation, baseline, sensitivity, and extreme-case analyses. Human validation remains a planned validation step until annotator files and agreement reports are produced.
+
+\begin{table}[h]
+\centering
+\caption{Model configuration used in the local experiment.}
+\label{tab:model_config}
+\scriptsize
+\begin{tabular}{llll}
+\toprule
+\textbf{Model} & \textbf{Provider} & \textbf{Runtime} & \textbf{Model String} \\
+\midrule
+Gemma 3 4B & Google & Ollama/local & \texttt{gemma3:4b} \\
+Phi-4 Mini & Microsoft & Ollama/local & \texttt{phi4-mini} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Prompt}
+
+Each model receives the same interpretation prompt:
+
+\begin{quote}
+You are a literary analyst. Read the following passage from a dystopian novel and provide an interpretation in 3--5 sentences. Explain its meaning, themes, and significance.
+\end{quote}
+
+The use of a fixed prompt ensures that differences in output can be compared under the same generation task. Generation is performed through Ollama's chat interface. If model calls fail, the generation script logs the failed passage identifier and continues, allowing the run to be resumed without regenerating completed rows.
+
+\subsection{Generated Analysis Artifacts}
+
+The evaluation produces model-level EFS distributions, per-dimension deltas, book-level summaries, corrected pairwise tests, effect sizes, ablation results, baseline comparisons, sensitivity analysis, and high-EFS cases for qualitative inspection. Results tables are generated from CSV outputs in \texttt{data/results/}.
+
+\section{Results and Analysis} \label{Results}
+
+This section reports the automated empirical results from 600 scored source-interpretation pairs. Positive source-minus-interpretation deltas indicate attenuation relative to the source passage, while negative values indicate that the interpretation contains stronger measured signal than the source on that dimension.
+
+\subsection{Overall Distortion Across Models}
+
+Table~\ref{tab:efs_summary} summarizes EFS by model. The mean EFS values are close to zero for both Gemma 3 4B and Phi-4 Mini, indicating that the aggregate default-weight score does not show a large overall model-level difference in this run. However, both models produce wide score ranges, so high-distortion cases remain important for qualitative inspection.
+
+\begin{table}[h]
+\centering
+\caption{EFS summary by model from \texttt{summary\_statistics.csv}.}
+\label{tab:efs_summary}
+\scriptsize
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Model} & \textbf{Mean} & \textbf{Std.} & \textbf{Min.} & \textbf{Max.} \\
+\midrule
+Gemma 3 4B & -0.0024 & 0.2290 & -0.5680 & 0.8474 \\
+Phi-4 Mini & -0.0025 & 0.2799 & -0.9190 & 1.0447 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Per-Dimension Analysis}
+
+Table~\ref{tab:dimension_summary} reports mean deltas for each EFS dimension. Gemma 3 4B shows a positive mean causal-completeness delta but a negative lexical-intensity delta. Phi-4 Mini shows a small positive moral-explicitness delta and near-zero to negative mean deltas on the other dimensions. These results suggest that aggregate EFS can hide different dimensional profiles.
+
+\begin{table}[h]
+\centering
+\caption{Mean source-minus-interpretation deltas by model.}
+\label{tab:dimension_summary}
+\scriptsize
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Model} & \textbf{Moral} & \textbf{Agency} & \textbf{Lexical} & \textbf{Causal} \\
+\midrule
+Gemma 3 4B & -0.0083 & -0.0033 & -0.1735 & 0.2214 \\
+Phi-4 Mini & 0.0180 & -0.0033 & -0.0094 & -0.0237 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Book-Level Comparison}
+
+Book-level means vary more visibly than the overall model means. For example, Gemma 3 4B has its highest mean EFS on \textit{1984} (0.0927), while Phi-4 Mini has its highest mean EFS on \textit{We} (0.1488) and its lowest on \textit{1984} (-0.2656). This variation suggests that source text and passage composition should be interpreted alongside model-level summaries.
+
+\subsection{Ablation Study}
+
+The ablation analysis removes each dimension and recomputes EFS. Omitting causal completeness causes the largest mean absolute shift (0.1777) and the lowest correlation with the full EFS score (0.4445), indicating that causal completeness contributes strongly to the default composite score in this run. Omitting agency attribution causes the smallest shift (0.0667) and preserves the highest correlation with full EFS (0.9984).
+
+\subsection{Baseline and Statistical Tests}
+
+The corrected pairwise test on EFS shows no meaningful aggregate difference between Gemma 3 4B and Phi-4 Mini in this run: $t=0.0039$, Bonferroni-corrected $p=0.9969$, and Cohen's $d=0.0003$. Baseline comparisons show that the unweighted all-dimension baseline is almost perfectly correlated with default EFS ($r=0.9963$), while single-dimension and sentiment-proxy baselines are much weaker ($r=0.3281$ to $0.4389$). This supports using multiple dimensions rather than a single lexical or sentiment proxy.
+
+\section{Human Validation} \label{sec:human_validation}
+
+Human validation will be used to test whether EFS aligns with human judgments of moral meaning attenuation. Annotators will rate shared source-interpretation pairs on a 1--5 ordinal distortion scale, where higher values indicate stronger loss of moral meaning. The minimum defensible validation set is 30 shared pairs, while the preferred target is three annotators rating the same 150 pairs.
+
+Inter-annotator agreement will be reported before any consensus labels are used for calibration. If agreement is sufficient, consensus annotations will be used to evaluate the relationship between EFS and human judgments. When enough annotated pairs are available, ridge regression can learn dimension weights; otherwise, the default weights are retained and the limitation is reported.
+
+\section{Qualitative Analysis} \label{sec:qualitative}
+
+Qualitative analysis will use high-EFS examples from \texttt{data/results/extreme\_cases.csv}. The final paper will include three to five short examples. Each example will identify what the source passage says morally, what the model interpretation changes, which EFS dimension captures the change, and whether human annotators agreed that the interpretation was distorted.
+
+The selected cases should include at least one agency-erasure example, at least one lexical-softening example, and at least one causal-loss example if such a case appears in the scored outputs.
+
+\section{Reproducibility and Data Ethics} \label{sec:repro_ethics}
+
+All model generation uses the exact model strings \texttt{gemma3:4b} and \texttt{phi4-mini} through Ollama, and all passages are processed through the same prompt. The code records the model key, exact model string, source passage, and generated interpretation for each row. Result tables and figures should be generated from committed CSV files so that every reported number can be traced to an output artifact.
+
+The dataset combines public-domain Project Gutenberg texts with locally supplied or EPUB-derived texts. Copyrighted or manually supplied source texts are used only for research analysis, and examples in the paper should quote only the minimum excerpt needed for interpretation. The study evaluates textual attenuation in model outputs and does not make claims about model intent.
+
+\section{Limitations}
+
+This study has several limitations. First, EFS approximates moral meaning through measurable linguistic features, and therefore may miss irony, implication, literary ambiguity, or broader narrative context. Second, lexicon-based and dependency-based methods are imperfect proxies for moral interpretation. Third, passage selection may be biased toward texts with explicit moral or political language.
+
+Fourth, the study uses Gemma 3 4B and Phi-4 Mini running locally through Ollama. Therefore, the findings should not be generalized to frontier API models such as GPT, Claude, or Gemini without additional experiments. Finally, the metric detects textual attenuation; it does not prove model intent or establish that any observed distortion is caused specifically by alignment training.
+
+\section{Conclusion}
+
+This paper proposes a framework for detecting and quantifying moral meaning attenuation in LLM-generated interpretations. Unlike hallucination or refusal, this form of distortion may occur in fluent and factually coherent outputs, making it difficult to detect using standard evaluation methods.
+
+To address this gap, we introduced the Epistemic Fidelity Score (EFS), which compares a source passage and its LLM-generated interpretation across four dimensions: moral explicitness, agency attribution, lexical intensity, and causal completeness. The framework enables automated measurement of moral-linguistic attenuation and supports cross-model comparison.
+
+The local experiment evaluates Gemma 3 4B and Phi-4 Mini on 300 passages from dystopian literature, producing 600 source-interpretation pairs. In the current run, aggregate default-weight EFS values are close to zero for both models, while per-dimension and book-level summaries reveal more varied patterns that require qualitative and human validation. Future work includes extending the framework to additional models, improving semantic feature representations, validating EFS against human judgments, and applying the method to other domains where meaning preservation is critical.
+
+\bibliographystyle{IEEEtran}
+\nocite{*}
+\bibliography{ref}
+
+\end{document}

@@ -1,4 +1,4 @@
-# Alignment-Induced Meaning Loss in LLMs
+# Moral Meaning Attenuation in Local LLMs
 
 Detecting and quantifying how LLM interpretations can attenuate moral content
 in dystopian literature using the Epistemic Fidelity Score (EFS).
@@ -12,9 +12,9 @@ This repo currently runs a local-model version of the study:
 - Passages: 50 per book, 300 total
 - Expected interpretation pairs: 300 passages x 2 models = 600 `(S, I)` pairs
 
-The accompanying paper draft discusses a frontier-model version with GPT, Claude,
-and Gemini. Treat that as the paper plan unless the code is switched back to
-API-hosted models.
+The accompanying paper source is aligned with this local-model study. Do not
+claim GPT, Claude, Gemini, or other frontier-model behavior unless the code and
+experiments are updated to run those models.
 
 ## Setup
 
@@ -100,6 +100,9 @@ python src/07_agreement_analysis.py --write-consensus
 - `data/results/features_all.csv`: source and interpretation feature deltas
 - `data/results/efs_scores.csv`: EFS for every pair
 - `data/results/summary_statistics.csv`: model summary table
+- `data/results/book_summary.csv`: EFS summary by book and model
+- `data/results/dimension_summary.csv`: per-dimension summary by model
+- `data/results/pairwise_tests.csv`: corrected model comparisons and effect sizes
 - `data/results/validation_*.csv`: ablation, baseline, and sensitivity checks
 - `data/results/extreme_cases.csv`: highest-distortion examples for qualitative review
 - `annotations/agreement_*.csv`: human annotation agreement reports
@@ -109,8 +112,7 @@ python src/07_agreement_analysis.py --write-consensus
 
 The implemented code covers the main EFS pipeline, but the research is not
 paper-ready until it has generated results, human validation annotations,
-baseline comparisons, ablations, and a paper/code alignment decision. See
-`RESEARCH_STATUS.md`.
+baseline comparisons, and ablations. See `RESEARCH_STATUS.md`.
 
 For paper writing, use `PAPER_REVISION_PLAN.md`, `TODO_FLAWLESS_PAPER.md`, and
 `QUALITATIVE_ANALYSIS_TEMPLATE.md`.

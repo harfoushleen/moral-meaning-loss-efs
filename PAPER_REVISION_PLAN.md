@@ -5,19 +5,12 @@ credible empirical paper.
 
 ## Core Decision
 
-Choose one final study identity before rewriting results:
+Final study identity: local-model study.
 
-1. Local-model study
-   - Models: Gemma 3 4B and Phi-4 Mini through Ollama
-   - Strength: reproducible, cheaper, fully local
-   - Limitation: cannot claim frontier-model behavior
-
-2. Frontier-model study
-   - Models: GPT, Claude, Gemini through APIs
-   - Strength: closer to the original paper claim
-   - Limitation: cost, API drift, stricter reproducibility burden
-
-Current repo status: local-model study.
+- Models: Gemma 3 4B and Phi-4 Mini through Ollama
+- Strength: reproducible, cheaper, fully local
+- Limitation: cannot claim frontier-model behavior
+- Current manuscript source: `paper.tex`
 
 ## Recommended Thesis
 
@@ -50,11 +43,13 @@ Avoid this until validated:
 
 Must explain:
 
-- what moral meaning loss is
+- what moral meaning attenuation is
 - why it differs from hallucination, refusal, and bias
 - why dystopian literature is a good testbed
 - what EFS measures
-- what evidence the paper contributes
+- what evidence the paper contributes 
+- Problem not veryyy well motivated= Will not doing it risk something?
+- More limitations of previous work
 
 ### Method
 
@@ -165,9 +160,15 @@ Defensible after model outputs:
 > The studied models show measurable differences in moral-linguistic
 > attenuation across the selected dystopian passages.
 
+Refined after the current local run:
+
+> The studied models show measurable dimensional and book-level variation in
+> moral-linguistic attenuation, while aggregate default-weight EFS does not show
+> a meaningful overall difference between Gemma 3 4B and Phi-4 Mini.
+
 Defensible after human validation:
 
-> EFS aligns with human judgments of moral meaning loss on an annotated
+> EFS aligns with human judgments of moral meaning attenuation on an annotated
 > validation subset.
 
 Only defensible after frontier-model runs:
@@ -178,8 +179,8 @@ Only defensible after frontier-model runs:
 
 - Paper and code use the same model names.
 - Paper and code use the same book list.
-- Every result table is generated from committed CSVs.
-- Every figure has a corresponding script.
+- Automated result tables are generated from CSVs in `data/results/`.
+- Every current figure has a corresponding script.
 - Human annotation agreement is reported.
 - Limitations are explicit.
 - No unsupported claims about model intent.

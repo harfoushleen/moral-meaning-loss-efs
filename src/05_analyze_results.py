@@ -13,11 +13,18 @@ Notes:
 """
 
 from pathlib import Path
+import os
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
 import pandas as pd
 import numpy as np
+
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    str(Path(__file__).resolve().parent.parent / "outputs" / ".matplotlib"),
+)
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
@@ -115,7 +122,7 @@ def plot_dimension_comparison(df: pd.DataFrame):
 
     ax.set_xticks(x + width * (len(models) - 1) / 2)
     ax.set_xticklabels(dim_labels)
-    ax.set_ylabel("Mean Delta (Source − Interpretation)")
+    ax.set_ylabel("Mean Delta (Source - Interpretation)")
     ax.set_title("Mean Distortion per Dimension by Model")
     ax.axhline(0, color="black", linewidth=0.8)
     ax.legend()
@@ -182,8 +189,8 @@ def print_stats_table(df: pd.DataFrame):
     print("\n  === Full Statistics Table ===")
 
     dims       = ["delta_f1", "delta_f2", "delta_f3", "delta_f4", "efs"]
-    dim_labels = ["Δ Moral Expl.", "Δ Agency Attr.",
-                  "Δ Lexical Int.", "Δ Causal Compl.", "EFS"]
+    dim_labels = ["Delta Moral Expl.", "Delta Agency Attr.",
+                  "Delta Lexical Int.", "Delta Causal Compl.", "EFS"]
 
     for model_key in sorted(df["model_key"].unique()):
         subset = df[df["model_key"] == model_key]
@@ -200,6 +207,7 @@ def print_stats_table(df: pd.DataFrame):
     pairs  = [(models[i], models[j])
               for i in range(len(models)) for j in range(i + 1, len(models))]
     n_comparisons = len(pairs)
+    pairwise_rows = []
 
     print(f"\n  === Pairwise t-tests on EFS "
           f"(Bonferroni-corrected, {n_comparisons} comparisons) ===")
@@ -220,12 +228,44 @@ def print_stats_table(df: pd.DataFrame):
         print(f"  {label(m1)} vs {label(m2)}: "
               f"t={t_stat:.3f}, p_raw={p_raw:.4f}, "
               f"p_bonf={p_corrected:.4f} {sig}, d={d:.3f}")
+        pairwise_rows.append({
+            "model_1": m1,
+            "model_2": m2,
+            "t_stat": t_stat,
+            "p_raw": p_raw,
+            "p_bonferroni": p_corrected,
+            "cohens_d": d,
+            "significance": sig,
+        })
 
-    # Save summary CSV
+    # Save paper-ready CSVs with flat headers.
     out_file = RESULTS_DIR / "summary_statistics.csv"
-    summary  = df.groupby("model_key")[dims].agg(["mean", "std", "min", "max"])
-    summary.to_csv(out_file)
+    summary = df.groupby("model_key")[dims].agg(["mean", "std", "min", "max"])
+    summary.columns = [f"{metric}_{stat}" for metric, stat in summary.columns]
+    summary = summary.reset_index()
+    summary.to_csv(out_file, index=False)
     print(f"\n  Saved summary statistics to {out_file}")
+
+    book_summary = (
+        df.groupby(["book", "model_key"])["efs"]
+        .agg(["mean", "std", "min", "max", "count"])
+        .reset_index()
+    )
+    book_summary.to_csv(RESULTS_DIR / "book_summary.csv", index=False)
+
+    dimension_summary = (
+        df.groupby("model_key")[dims[:-1]]
+        .agg(["mean", "std", "min", "max"])
+    )
+    dimension_summary.columns = [
+        f"{metric}_{stat}" for metric, stat in dimension_summary.columns
+    ]
+    dimension_summary = dimension_summary.reset_index()
+    dimension_summary.to_csv(RESULTS_DIR / "dimension_summary.csv", index=False)
+
+    pd.DataFrame(pairwise_rows).to_csv(
+        RESULTS_DIR / "pairwise_tests.csv", index=False
+    )
 
 
 # ── Helper ──────────────────────────────────────────────────────────────────
