@@ -1,7 +1,20 @@
 # Alignment-Induced Meaning Loss in LLMs
 
-Detecting and quantifying how alignment-trained LLMs attenuate moral content
-in interpretations of dystopian literature, using the Epistemic Fidelity Score (EFS).
+Detecting and quantifying how LLM interpretations can attenuate moral content
+in dystopian literature using the Epistemic Fidelity Score (EFS).
+
+## Current Experiment
+
+This repo currently runs a local-model version of the study:
+
+- Models: `gemma3:4b` and `phi4-mini` through Ollama
+- Books: 6 dystopian novels
+- Passages: 50 per book, 300 total
+- Expected interpretation pairs: 300 passages x 2 models = 600 `(S, I)` pairs
+
+The accompanying paper draft discusses a frontier-model version with GPT, Claude,
+and Gemini. Treat that as the paper plan unless the code is switched back to
+API-hosted models.
 
 ## Setup
 
@@ -9,93 +22,82 @@ in interpretations of dystopian literature, using the Epistemic Fidelity Score (
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python -m spacy download en_core_web_sm   # **REQUIRED** — downloads the spacy model
-cp .env.example .env            # then fill in your API keys
+python -m spacy download en_core_web_sm
 ```
 
-## Run Pipeline (in order)
+Install and start Ollama, then pull the configured models:
 
-**Option A: Automatic (recommended)**
 ```bash
-python run_pipeline.py        # Runs all steps with error-checking
+ollama pull gemma3:4b
+ollama pull phi4-mini
 ```
 
-**Option B: Manual** (if you have EPUBs, do this first)
+## Run Pipeline
+
+Automatic:
+
 ```bash
-# If using EPUB books, convert them first:
-python src/00b_convert_epubs.py    # Convert .epub → .txt (one-time)
-
-# Then run the pipeline:
-python src/00_download_books.py       # Download books from Gutenberg
-python src/01_extract_passages.py     # Extract ~50 passages per book
-python src/02_generate_interpretations.py  # Call LLM APIs (~900 calls)
-python src/03_extract_features.py     # Extract 4 EFS dimensions
-python src/04_compute_efs.py          # Compute EFS scores
-python src/05_analyze_results.py      # Generate figures + stats
+python run_pipeline.py
 ```
 
-If a step fails, fix the error and resume with:
+Manual:
+
 ```bash
-python run_pipeline.py --from N       # Resume from step N (0–5)
-python run_pipeline.py --only N       # Run only step N
+python src/00b_convert_epubs.py
+python src/00_download_books.py
+python src/01_extract_passages.py
+python src/02_generate_interpretations.py
+python src/03_extract_features.py
+python src/04_compute_efs.py
+python src/05_analyze_results.py
+python src/06_validate_metrics.py
 ```
 
-## Adding Books Manually
-Place `.txt` files in `data/raw/` and add entries to `src/config.py`.
+Resume after a failure:
+
+```bash
+python run_pipeline.py --from N
+python run_pipeline.py --only N
+```
 
 ## Books Included
 
-The pipeline uses **6 dystopian novels**:
+From Project Gutenberg:
 
-**From Project Gutenberg (3 books):**
-- We (Zamyatin, ID: 61963)
-- The Time Machine (H.G. Wells, ID: 12163)
-- The Iron Heel (Jack London, ID: 1164)
+- `we`: We, Yevgeny Zamyatin
+- `time_machine`: The Time Machine, H. G. Wells
+- `iron_heel`: The Iron Heel, Jack London
 
-**From personal EPUBs (3 books):**
-- 1984 (Orwell)
-- Animal Farm (Orwell)
-- Fahrenheit 451 (Bradbury)
+Manual or EPUB-derived texts:
 
-Total: **50 passages × 6 books × 3 models = 900 (S, I) pairs**
+- `1984`
+- `animal_farm`
+- `fahrenheit`
 
-### Adding Your EPUB Files
+Place manual `.txt` files in `data/raw/`, or place EPUBs there and run
+`python src/00b_convert_epubs.py`.
 
-1. **Place your EPUB files** in `data/raw/` with these names:
-   ```
-   1984.epub
-   animal_farm.epub
-   fahrenheit.epub
-   ```
+## Annotation
 
-2. **Convert EPUBs to plain text:**
-   ```bash
-   python src/00b_convert_epubs.py
-   ```
-   This creates `.txt` files from your EPUBs (one-time).
-
-3. **Continue with the pipeline:**
-   ```bash
-   python run_pipeline.py
-   ```
-   Step 0 will skip Gutenberg downloads for EPUB books (since `.txt` files already exist).
-
-## Annotation (Optional, improves EFS weights)
 After step 4, open `annotations/annotation_template.csv`, fill in
-`distortion_score` (1=faithful, 5=heavily distorted) for each row,
-save as `annotations/annotations.csv`, then re-run step 4.
+`distortion_score` from 1 to 5, save as `annotations/annotations.csv`, and
+rerun step 4 to learn EFS weights through ridge regression.
 
-See **ANNOTATION_GUIDE.md** for detailed scale definitions and examples.
+See `ANNOTATION_GUIDE.md` for scale definitions.
 
-## Model Names in Paper vs. Code
+## Outputs
 
-The analysis uses real model names for reproducibility:
-- **Code**: `gpt-4o`, `claude-sonnet-4-6`, `gemini-1.5-pro`
-- **Paper**: Referred to as GPT-5, Claude 4.6, Gemini 3 (for consistency with naming conventions in the lit.)
+- `data/results/interpretations_{model}.csv`: model interpretations
+- `data/results/features_all.csv`: source and interpretation feature deltas
+- `data/results/efs_scores.csv`: EFS for every pair
+- `data/results/summary_statistics.csv`: model summary table
+- `data/results/validation_*.csv`: ablation, baseline, and sensitivity checks
+- `data/results/extreme_cases.csv`: highest-distortion examples for qualitative review
+- `outputs/figures/`: PDF and PNG plots
 
-The `MODEL_LABELS` dict in `src/05_analyze_results.py` controls plot/table labels.
+## Research Status
 
-## Output
-- `data/results/efs_scores.csv` — EFS for every (S, I) pair
-- `outputs/figures/` — all plots (PDF + PNG)
-- `data/results/summary_statistics.csv` — table for paper
+The implemented code covers the main EFS pipeline, but the research is not
+paper-ready until it has generated results, human validation annotations,
+baseline comparisons, ablations, and a paper/code alignment decision. See
+`RESEARCH_STATUS.md`.

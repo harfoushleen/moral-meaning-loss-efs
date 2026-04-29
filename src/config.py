@@ -5,7 +5,12 @@ Edit MODELS and BOOKS here to change scope.
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        return False
 
 # Always load .env from the project root (one level up from src/)
 # This works regardless of which directory you run the script from
@@ -65,7 +70,7 @@ BOOKS = {
 # ── Passage Settings ───────────────────────────────────────────────────────
 PASSAGE_MIN_WORDS        = 60
 PASSAGE_MAX_WORDS        = 150
-TARGET_PASSAGES_PER_BOOK = 50   # 50 × 3 books × 3 models = 450 (S, I) pairs
+TARGET_PASSAGES_PER_BOOK = 50   # 50 x 6 books x 2 models = 600 (S, I) pairs
 
 # ── EFS Settings ──────────────────────────────────────────────────────────
 # Default weights used when no annotations exist.

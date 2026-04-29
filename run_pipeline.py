@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Master pipeline orchestrator.
-Run all steps 0–5 in sequence with error-checking and logging.
+Run all configured steps in sequence with error-checking and logging.
 
 Usage:
     python run_pipeline.py                  # Run all steps
@@ -23,6 +23,7 @@ STEPS = [
     ("03_extract_features.py", "Extract 4 EFS feature dimensions"),
     ("04_compute_efs.py", "Compute Epistemic Fidelity Scores"),
     ("05_analyze_results.py", "Generate figures and statistics"),
+    ("06_validate_metrics.py", "Run ablation, baseline, sensitivity, and extreme-case analyses"),
 ]
 
 SRC_DIR = Path(__file__).parent / "src"

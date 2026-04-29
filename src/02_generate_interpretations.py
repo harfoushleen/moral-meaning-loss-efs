@@ -1,16 +1,12 @@
 """
-STEP 2: Send each passage to Claude, GPT, and Gemini and save interpretations.
+STEP 2: Send each passage to configured Ollama models and save interpretations.
 Outputs data/results/interpretations_{model}.csv
 
 Run: python src/02_generate_interpretations.py
 
-Each output CSV records the exact model_name string returned/used so results
-are reproducible and the paper can cite precise version strings.
+Each output CSV records the exact model_name string used so results are
+reproducible.
 
-Estimated API cost: ~450 calls × ~400 tokens output
-  Claude Sonnet 4.6 : ~$0.90
-  GPT-4o            : ~$1.80
-  Gemini 1.5 Pro    : ~$0.45
 """
 
 import csv
@@ -42,6 +38,27 @@ MODEL_CALLERS = {
 
 # ── Main ───────────────────────────────────────────────────────────────────
 
+def check_ollama_ready():
+    """Fail fast if the Ollama server is not available."""
+    try:
+        import ollama
+        available = ollama.list()
+    except Exception as exc:
+        raise RuntimeError(
+            "Ollama is not available. Install/start Ollama and pull the "
+            "configured models before running this step."
+        ) from exc
+
+    models = available.get("models", []) if isinstance(available, dict) else []
+    names = {m.get("name") or m.get("model") for m in models if isinstance(m, dict)}
+    missing = [model for model in MODELS.values() if model not in names]
+    if missing:
+        print(
+            "  Warning: these configured models were not reported by Ollama: "
+            + ", ".join(missing)
+        )
+
+
 def load_all_passages() -> pd.DataFrame:
     dfs = []
     for csv_file in sorted(PASSAGES_DIR.glob("*_passages.csv")):
@@ -54,7 +71,9 @@ def load_all_passages() -> pd.DataFrame:
 def generate_for_model(model_key: str, passages_df: pd.DataFrame):
     model_name = MODELS[model_key]
     out_file   = RESULTS_DIR / f"interpretations_{model_key}.csv"
-    caller     = MODEL_CALLERS[model_key]
+    caller     = MODEL_CALLERS.get(model_key)
+    if caller is None:
+        raise KeyError(f"No model caller configured for model key: {model_key}")
 
     # Resume support: skip already-processed passage IDs
     done_ids = set()
@@ -97,6 +116,11 @@ def generate_for_model(model_key: str, passages_df: pd.DataFrame):
 
 if __name__ == "__main__":
     print("=== Step 2: Generating LLM interpretations ===")
+    try:
+        check_ollama_ready()
+    except RuntimeError as exc:
+        print(f"  {exc}")
+        sys.exit(1)
     passages_df = load_all_passages()
     print(f"  Loaded {len(passages_df)} total passages.\n")
 

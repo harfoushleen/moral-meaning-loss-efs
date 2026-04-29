@@ -6,7 +6,6 @@ All three books are freely available on Gutenberg — no manual steps needed.
 """
 
 import time
-import requests
 from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
@@ -23,9 +22,17 @@ def download_book(book_name: str, gutenberg_id: int):
         print(f"  [{book_name}] Already exists, skipping.")
         return
 
+    if gutenberg_id is None:
+        print(
+            f"  [{book_name}] No Gutenberg ID configured. "
+            f"Expected manual file at {out_path}; skipping."
+        )
+        return
+
     url = GUTENBERG_URL.format(id=gutenberg_id)
     print(f"  [{book_name}] Downloading from {url} ...")
 
+    import requests
     response = requests.get(url, timeout=30)
     response.raise_for_status()
 

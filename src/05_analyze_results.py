@@ -4,11 +4,10 @@ Outputs figures to outputs/figures/
 
 Run: python src/05_analyze_results.py
 
-Fixes applied vs original:
-  - Model labels updated to actual API model names (GPT-4o, Gemini 1.5 Pro,
-    Claude Sonnet 4.6) instead of fabricated names from the paper.
-  - Pairwise t-tests now apply Bonferroni correction for multiple comparisons
-    (3 comparisons). Raw p-values alone would inflate false positive rate.
+Notes:
+  - Plot labels are read from config.MODEL_DISPLAY_NAMES so figures match the
+    configured experiment.
+  - Pairwise t-tests apply Bonferroni correction for multiple comparisons.
   - Cohen's d effect size is reported alongside every t-test so statistical
     significance is not confused with practical significance.
 """
@@ -34,11 +33,15 @@ plt.rcParams.update({
     "savefig.dpi":     300,
 })
 
-MODEL_COLORS = {
-    "claude": "#e07b39",
-    "gpt":    "#4a90d9",
-    "gemini": "#5cb85c",
-}
+PALETTE = [
+    "#4a90d9",
+    "#e07b39",
+    "#5cb85c",
+    "#7b61ff",
+    "#d95f9f",
+    "#6a994e",
+    "#8a5a44",
+]
 
 
 def label(model_key: str) -> str:
@@ -52,15 +55,29 @@ def load_data() -> pd.DataFrame:
     return pd.read_csv(efs_file)
 
 
+def model_keys(df: pd.DataFrame) -> list[str]:
+    """Return model keys in display-name order, then any extra keys alphabetically."""
+    configured = [m for m in MODEL_DISPLAY_NAMES if m in set(df["model_key"])]
+    extras = sorted(set(df["model_key"]) - set(configured))
+    return configured + extras
+
+
+def model_color_map(models: list[str]) -> dict[str, str]:
+    return {model: PALETTE[i % len(PALETTE)] for i, model in enumerate(models)}
+
+
 # ── Plot 1: EFS Distribution per Model ─────────────────────────────────────
 
 def plot_efs_distribution(df: pd.DataFrame):
     fig, ax = plt.subplots(figsize=(8, 4))
+    models = model_keys(df)
+    colors = model_color_map(models)
 
-    for model_key, color in MODEL_COLORS.items():
+    for model_key in models:
         subset = df[df["model_key"] == model_key]["efs"]
         if subset.empty:
             continue
+        color = colors[model_key]
         subset.plot.kde(ax=ax, color=color, label=label(model_key), linewidth=2)
         ax.axvline(subset.mean(), color=color, linestyle="--", alpha=0.7, linewidth=1)
 
@@ -80,9 +97,10 @@ def plot_dimension_comparison(df: pd.DataFrame):
     dim_labels = ["Moral\nExplicitness", "Agency\nAttribution",
                   "Lexical\nIntensity", "Causal\nCompleteness"]
 
-    models = [m for m in MODEL_COLORS if m in df["model_key"].unique()]
+    models = model_keys(df)
+    colors = model_color_map(models)
     x      = np.arange(len(dims))
-    width  = 0.25
+    width  = min(0.8 / max(len(models), 1), 0.25)
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
@@ -93,9 +111,9 @@ def plot_dimension_comparison(df: pd.DataFrame):
         ax.bar(x + i * width, means, width,
                yerr=stds, capsize=3,
                label=label(model_key),
-               color=MODEL_COLORS[model_key], alpha=0.85)
+               color=colors[model_key], alpha=0.85)
 
-    ax.set_xticks(x + width)
+    ax.set_xticks(x + width * (len(models) - 1) / 2)
     ax.set_xticklabels(dim_labels)
     ax.set_ylabel("Mean Delta (Source − Interpretation)")
     ax.set_title("Mean Distortion per Dimension by Model")
@@ -110,9 +128,10 @@ def plot_dimension_comparison(df: pd.DataFrame):
 
 def plot_efs_by_book(df: pd.DataFrame):
     books  = sorted(df["book"].unique())
-    models = [m for m in MODEL_COLORS if m in df["model_key"].unique()]
+    models = model_keys(df)
+    colors = model_color_map(models)
     x      = np.arange(len(books))
-    width  = 0.25
+    width  = min(0.8 / max(len(models), 1), 0.25)
 
     fig, ax = plt.subplots(figsize=(9, 5))
 
@@ -121,9 +140,9 @@ def plot_efs_by_book(df: pd.DataFrame):
         means  = [subset[subset["book"] == b]["efs"].mean() for b in books]
         ax.bar(x + i * width, means, width,
                label=label(model_key),
-               color=MODEL_COLORS[model_key], alpha=0.85)
+               color=colors[model_key], alpha=0.85)
 
-    ax.set_xticks(x + width)
+    ax.set_xticks(x + width * (len(models) - 1) / 2)
     ax.set_xticklabels([b.replace("_", " ").title() for b in books])
     ax.set_ylabel("Mean EFS")
     ax.set_title("Mean EFS by Source Book and Model")
