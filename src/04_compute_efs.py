@@ -27,6 +27,7 @@ from config import RESULTS_DIR, ANNOT_DIR, DEFAULT_WEIGHTS, MIN_ANNOTATION_PAIRS
 FEATURES        = ["delta_f1", "delta_f2", "delta_f3", "delta_f4"]
 ANNOTATION_FILE = ANNOT_DIR / "annotations.csv"
 TEMPLATE_FILE   = ANNOT_DIR / "annotation_template.csv"
+ANNOTATION_SAMPLE_PER_MODEL = 75
  
  
 def compute_efs_default(df: pd.DataFrame, weights=DEFAULT_WEIGHTS) -> pd.Series:
@@ -42,8 +43,9 @@ def learn_weights(df: pd.DataFrame):
     annotations.csv must have columns: passage_id, distortion_score (1-5)
     Returns (weights array, r2 score or None).
     """
-    annot  = pd.read_csv(ANNOTATION_FILE)
-    merged = df.merge(annot, on="passage_id", how="inner")
+    annot = pd.read_csv(ANNOTATION_FILE)
+    merge_keys = ["passage_id", "model_key"] if "model_key" in annot.columns else ["passage_id"]
+    merged = df.merge(annot, on=merge_keys, how="inner")
  
     if len(merged) < MIN_ANNOTATION_PAIRS:
         print(
@@ -95,13 +97,13 @@ def create_annotation_template(df: pd.DataFrame):
     # issues where the group key column gets dropped in newer pandas (2.x+)
     samples = []
     for model_key, group in df.groupby("model_key"):
-        samples.append(group.sample(min(10, len(group)), random_state=42))
+        samples.append(group.sample(min(ANNOTATION_SAMPLE_PER_MODEL, len(group)), random_state=42))
     sample = pd.concat(samples, ignore_index=True)
  
-    # Merge on passage_id only — model_key is already in sample
+    # Merge on both keys so the selected interpretation matches its model.
     merged = sample.merge(
         interp_df[["passage_id", "model_key", "source_passage", "interpretation"]],
-        on="passage_id",
+        on=["passage_id", "model_key"],
         how="left",
         suffixes=("", "_interp")
     )
