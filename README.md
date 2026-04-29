@@ -110,9 +110,10 @@ python src/07_agreement_analysis.py --write-consensus
 
 ## Research Status
 
-The implemented code covers the main EFS pipeline, but the research is not
-paper-ready until it has generated results, human validation annotations,
-baseline comparisons, and ablations. See `RESEARCH_STATUS.md`.
+The implemented code covers the main EFS pipeline and the current workspace
+contains generated local-model results, validation CSVs, figures, and the paper
+draft. The remaining work is human validation, qualitative analysis, and final
+submission polish.
 
-For paper writing, use `PAPER_REVISION_PLAN.md`, `TODO_FLAWLESS_PAPER.md`, and
+For team coordination, use `TEAM_TODO.md`. For qualitative examples, use
 `QUALITATIVE_ANALYSIS_TEMPLATE.md`.
