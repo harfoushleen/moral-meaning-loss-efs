@@ -7,7 +7,10 @@ Put any books not on Gutenberg (Fahrenheit 451 etc.) manually in data/raw/
 import requests
 from config import RAW_DIR, BOOKS
 
-GUTENBERG_URL = "https://www.gutenberg.org/cache/epub/{id}/pg{id}.txt"
+GUTENBERG_URLS = [
+    "https://www.gutenberg.org/files/{id}/{id}-0.txt",
+    "https://www.gutenberg.org/cache/epub/{id}/pg{id}.txt",
+]
 
 def download_book(book_name: str, gutenberg_id: int):
     out_path = RAW_DIR / BOOKS[book_name]["file"]
@@ -16,14 +19,24 @@ def download_book(book_name: str, gutenberg_id: int):
         print(f"  [{book_name}] Already exists, skipping.")
         return
     
-    url = GUTENBERG_URL.format(id=gutenberg_id)
-    print(f"  [{book_name}] Downloading from {url} ...")
+    # Try each URL format in order
+    for url_template in GUTENBERG_URLS:
+        url = url_template.format(id=gutenberg_id)
+        print(f"  [{book_name}] Trying {url} ...")
+        
+        try:
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            out_path.write_text(response.text, encoding="utf-8")
+            print(f"  [{book_name}] ✓ Downloaded and saved to {out_path}")
+            return
+        except requests.exceptions.RequestException as e:
+            print(f"    Failed: {e}")
+            continue
     
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
-    
-    out_path.write_text(response.text, encoding="utf-8")
-    print(f"  [{book_name}] Saved to {out_path}")
+    print(f"  [{book_name}] ✗ Could not download from any Gutenberg URL.")
+    print(f"    Please add {BOOKS[book_name]['file']} manually to data/raw/")
+
 
 if __name__ == "__main__":
     print("=== Downloading books ===")

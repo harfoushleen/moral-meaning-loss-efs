@@ -58,14 +58,14 @@ def extract_features(text: str) -> dict:
     f1 = (vader_compound + nrc_moral) / 2.0
 
     # ── f2: Agency Attribution ─────────────────────────────────────────────
-    # Active agent constructions (nsubj of a VERB) vs passive (nsubjpass)
+    # Active agent constructions (nsubj of a VERB) vs passive (nsubj:pass, aux:pass in spaCy v3+)
     active_agents = sum(
         1 for token in doc
         if token.dep_ == "nsubj" and token.head.pos_ == "VERB"
     )
     passive_count = sum(
         1 for token in doc
-        if token.dep_ in ("nsubjpass", "auxpass")
+        if token.dep_ in ("nsubj:pass", "aux:pass")
     )
     # Agency = ratio of active to total subject constructions
     total_subj = active_agents + passive_count + 1e-9
