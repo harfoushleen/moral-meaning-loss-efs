@@ -51,6 +51,7 @@ python src/03_extract_features.py
 python src/04_compute_efs.py
 python src/05_analyze_results.py
 python src/06_validate_metrics.py
+python src/07_agreement_analysis.py      # after annotator files exist
 ```
 
 Resume after a failure:
@@ -85,6 +86,14 @@ rerun step 4 to learn EFS weights through ridge regression.
 
 See `ANNOTATION_GUIDE.md` for scale definitions.
 
+For multi-annotator validation, copy `annotation_template.csv` to files named
+`annotations/annotator_NAME.csv`, then run:
+
+```bash
+python src/07_agreement_analysis.py
+python src/07_agreement_analysis.py --write-consensus
+```
+
 ## Outputs
 
 - `data/results/interpretations_{model}.csv`: model interpretations
@@ -93,6 +102,7 @@ See `ANNOTATION_GUIDE.md` for scale definitions.
 - `data/results/summary_statistics.csv`: model summary table
 - `data/results/validation_*.csv`: ablation, baseline, and sensitivity checks
 - `data/results/extreme_cases.csv`: highest-distortion examples for qualitative review
+- `annotations/agreement_*.csv`: human annotation agreement reports
 - `outputs/figures/`: PDF and PNG plots
 
 ## Research Status
@@ -101,3 +111,6 @@ The implemented code covers the main EFS pipeline, but the research is not
 paper-ready until it has generated results, human validation annotations,
 baseline comparisons, ablations, and a paper/code alignment decision. See
 `RESEARCH_STATUS.md`.
+
+For paper writing, use `PAPER_REVISION_PLAN.md`, `TODO_FLAWLESS_PAPER.md`, and
+`QUALITATIVE_ANALYSIS_TEMPLATE.md`.

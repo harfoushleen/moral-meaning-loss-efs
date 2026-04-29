@@ -18,6 +18,8 @@ This document tracks where the implementation stands relative to the paper draft
 - Model/book summary plots and corrected pairwise tests.
 - Optional validation script for ablations, baselines, weight sensitivity, and
   extreme-case extraction.
+- Human agreement tooling for multi-annotator validation.
+- Paper revision, qualitative analysis, and flawless-paper to-do templates.
 
 ## Not Yet Run In This Workspace
 
@@ -28,6 +30,8 @@ The repository currently has passage CSVs, but no generated result artifacts:
 - `data/results/efs_scores.csv`
 - `outputs/figures/*`
 - `annotations/annotations.csv`
+- `annotations/annotator_*.csv`
+- `annotations/agreement_*.csv`
 
 ## Main Mismatches With The Paper Draft
 
