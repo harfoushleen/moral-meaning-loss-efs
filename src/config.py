@@ -34,11 +34,13 @@ for d in [RAW_DIR, PASSAGES_DIR, RESULTS_DIR, ANNOT_DIR, FIG_DIR]:
 MODELS = {
     "gemma": "gemma3:4b",
     "phi":   "phi4-mini",
+    "qwen":  "qwen2.5:14b",
 }
 
 MODEL_DISPLAY_NAMES = {
     "gemma": "Gemma 3 4B",
     "phi":   "Phi-4 Mini",
+    "qwen":  "Qwen 2.5 14B",
 }
 
 # ── Books ──────────────────────────────────────────────────────────────────

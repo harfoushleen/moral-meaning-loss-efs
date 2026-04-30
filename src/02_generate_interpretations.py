@@ -32,8 +32,8 @@ def call_ollama(passage: str, model: str) -> str:
 MODEL_CALLERS = {
     "gemma": call_ollama,
     "phi":   call_ollama,
+    "qwen":  call_ollama,
 }
-
 
 
 # ── Main ───────────────────────────────────────────────────────────────────
