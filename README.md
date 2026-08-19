@@ -1,5 +1,7 @@
 # Moral Meaning Attenuation in Local LLMs
 
+[📄 Read the paper (PDF)](docs/Meaning_Loss_in_LLMs.pdf)
+
 Detecting and quantifying how LLM interpretations can attenuate moral content
 in dystopian literature using the Epistemic Fidelity Score (EFS).
 
